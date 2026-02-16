@@ -14,6 +14,7 @@ import (
 	"cpms/internal/httpapi"
 	"cpms/internal/repo"
 	"cpms/internal/services"
+	"cpms/internal/gatewayclient"
 )
 
 func main() {
@@ -32,9 +33,12 @@ func main() {
 	events := repo.NewEventsRepo(d.Pool)
 	state := repo.NewStateRepo(d.Pool)
 	sessions := repo.NewSessionsRepo(d.Pool)
+	commands := repo.NewCommandsRepo(d.Pool)
+
+	gw := gatewayclient.New(cfg.GatewayBaseURL, cfg.GatewayAPIKey)
 
 	processor := services.NewEventsProcessor(events, chargers, state, sessions, cfg.MaxEventSkew)
-	srv := httpapi.NewServer(cfg, chargers, state, sessions, processor)
+	srv := httpapi.NewServer(cfg, chargers, state, sessions, commands, gw, processor)
 
 	httpServer := &http.Server{
 		Addr:              cfg.ListenAddr,

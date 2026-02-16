@@ -45,3 +45,23 @@ go run ./cmd/gateway
 ```
 
 DB schema here is intentionally minimal; we can expand later for sites, tariffs, wallets, settlement, invoices.
+
+
+## Send commands (CPMS -> Gateway -> Charger)
+Set gateway base URL when running CPMS (defaults to http://localhost:8080):
+```bash
+export GATEWAY_BASE_URL=http://localhost:8080
+export GATEWAY_API_KEY=
+```
+
+Example RemoteStart via CPMS:
+```bash
+curl -X POST http://localhost:8081/v1/commands \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type":"RemoteStartTransaction",
+    "chargePointId":"CP-123",
+    "idempotencyKey":"start-1",
+    "payload":{"connectorId":1,"idTag":"APP_abc123"}
+  }'
+```

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"cpms/internal/config"
+	"cpms/internal/gatewayclient"
 	"cpms/internal/repo"
 	"cpms/internal/security"
 	"cpms/internal/services"
@@ -19,11 +20,13 @@ type Server struct {
 	Chargers  *repo.ChargersRepo
 	State     *repo.StateRepo
 	Sessions  *repo.SessionsRepo
+	Commands  *repo.CommandsRepo
+	Gateway   *gatewayclient.Client
 	Processor *services.EventsProcessor
 }
 
-func NewServer(cfg config.Config, chargers *repo.ChargersRepo, state *repo.StateRepo, sessions *repo.SessionsRepo, processor *services.EventsProcessor) *Server {
-	return &Server{Cfg: cfg, Chargers: chargers, State: state, Sessions: sessions, Processor: processor}
+func NewServer(cfg config.Config, chargers *repo.ChargersRepo, state *repo.StateRepo, sessions *repo.SessionsRepo, commands *repo.CommandsRepo, gw *gatewayclient.Client, processor *services.EventsProcessor) *Server {
+	return &Server{Cfg: cfg, Chargers: chargers, State: state, Sessions: sessions, Commands: commands, Gateway: gw, Processor: processor}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -39,6 +42,8 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/v1/chargers/{chargePointId}/connectors", s.ListConnectors)
 	r.Get("/v1/chargers/{chargePointId}/sessions", s.ListSessionsByCharger)
 	r.Get("/v1/sessions/{sessionId}", s.GetSession)
+
+	r.Post("/v1/commands", s.CreateAndSendCommand)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	return r

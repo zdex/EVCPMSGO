@@ -43,3 +43,16 @@ type MeterSample struct {
 	Ts            time.Time
 	SamplesJSON   []byte
 }
+
+type Command struct {
+	CommandId      string
+	ChargePointId  string
+	Type           string
+	IdempotencyKey string
+	PayloadJSON    []byte
+	Status         string
+	ResponseJSON   []byte
+	Error          *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
