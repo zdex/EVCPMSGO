@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: CPMS Core API (MVP)
+  version: 0.1.0
+servers:
+  - url: http://localhost:8081
+paths:
+  /v1/gateway/chargers/{chargePointId}/auth:
+    post:
+      summary: Validate charger auth (called by gateway)
+      parameters:
+        - in: path
+          name: chargePointId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                presentedSecret: { type: string }
+                remoteAddr: { type: string }
+              required: [presentedSecret]
+      responses:
+        "200": { description: Authorized }
+        "401": { description: Unauthorized }
+  /v1/gateway/events:
+    post:
+      summary: Ingest normalized events from gateway
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "202": { description: Accepted }
