@@ -65,3 +65,16 @@ curl -X POST http://localhost:8081/v1/commands \
     "payload":{"connectorId":1,"idTag":"APP_abc123"}
   }'
 ```
+
+
+## Session finalization fallback
+This CPMS finalizes sessions with this fallback order when `meterStopWh` is missing:
+1) `meterStopWh - meterStartWh` (StopTransaction)
+2) last `Energy.Active.Import.Register` from `MeterSample` minus `meterStartWh`
+3) sum of `Energy.Active.Import.Interval` samples (Wh)
+4) mark as `Missing` and `is_estimated=true`
+
+Migration for existing DB:
+```bash
+docker exec -i <db_container> psql -U cpms -d cpms < db/003_session_finalization.sql
+```

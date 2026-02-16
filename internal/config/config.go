@@ -8,10 +8,9 @@ import (
 type Config struct {
 	GatewayBaseURL string
 	GatewayAPIKey  string
-
-	ListenAddr   string
-	DatabaseURL  string
-	MaxEventSkew time.Duration
+	ListenAddr     string
+	DatabaseURL    string
+	MaxEventSkew   time.Duration
 }
 
 func Load() Config {

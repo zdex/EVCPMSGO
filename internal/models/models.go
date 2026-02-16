@@ -33,6 +33,10 @@ type Session struct {
 	MeterStartWh  *int64
 	MeterStopWh   *int64
 	Reason        *string
+	EnergyWh      *int64
+	EnergySource  *string
+	IsEstimated   bool
+	FinalizedAt   *time.Time
 }
 
 type MeterSample struct {

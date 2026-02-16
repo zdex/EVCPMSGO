@@ -42,6 +42,10 @@ create table if not exists sessions (
   meter_start_wh bigint,
   meter_stop_wh bigint,
   reason text,
+  energy_wh bigint,
+  energy_source text,
+  is_estimated boolean not null default false,
+  finalized_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

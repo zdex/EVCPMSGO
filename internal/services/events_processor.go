@@ -157,6 +157,11 @@ func (p *EventsProcessor) Ingest(ctx context.Context, raw []byte) (string, error
 		if v, ok := envelope["reason"].(string); ok {
 			reason = &v
 		}
+		// Store end markers (meter_stop may be missing)
+		_ = p.Sessions.End(ctx, sess.SessionId, ts, stop, reason)
+		// Finalize with fallback (StopTransaction -> last register -> sum interval -> Missing)
+		_ = p.Sessions.FinalizeWithFallback(ctx, sess.SessionId)
+		_ = p.Chargers.TouchLastSeen(ctx, cp, ts)
 		_ = p.Sessions.End(ctx, sess.SessionId, ts, stop, reason)
 		_ = p.Chargers.TouchLastSeen(ctx, cp, ts)
 	}
