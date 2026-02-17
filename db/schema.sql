@@ -75,3 +75,53 @@ create table if not exists commands (
   updated_at timestamptz not null default now()
 );
 create index if not exists idx_commands_cp_created on commands(charge_point_id, created_at desc);
+
+
+create table if not exists sites (
+  site_id uuid primary key default uuid_generate_v4(),
+  name text not null unique,
+  created_at timestamptz not null default now()
+);
+
+alter table chargers
+  add column if not exists site_id uuid references sites(site_id);
+
+create table if not exists tariffs (
+  tariff_id uuid primary key default uuid_generate_v4(),
+  site_id uuid not null references sites(site_id) on delete cascade,
+  price_per_kwh numeric(12,4) not null,
+  currency text not null default 'USD',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_tariffs_site_active on tariffs(site_id, is_active);
+
+alter table sessions
+  add column if not exists tariff_id uuid references tariffs(tariff_id),
+  add column if not exists cost_amount numeric(12,4),
+  add column if not exists cost_currency text,
+  add column if not exists priced_at timestamptz;
+
+create index if not exists idx_sessions_priced_at on sessions(priced_at);
+
+
+alter table sites
+  add column if not exists payout_wallet text;
+
+create table if not exists settlements (
+  settlement_id uuid primary key default uuid_generate_v4(),
+  session_id uuid not null references sessions(session_id) on delete cascade,
+  site_id uuid not null references sites(site_id) on delete cascade,
+  amount numeric(12,4) not null,
+  currency text not null,
+  status text not null default 'Pending', -- Pending|Submitted|Confirmed|Failed
+  chain text,              -- e.g., XRPL, ETH, SOL (optional)
+  tx_hash text,            -- blockchain tx hash once submitted
+  external_ref text,       -- idempotency / external correlation key
+  error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(session_id)
+);
+create index if not exists idx_settlements_status_created on settlements(status, created_at);

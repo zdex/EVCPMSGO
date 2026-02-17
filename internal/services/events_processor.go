@@ -11,15 +11,33 @@ import (
 )
 
 type EventsProcessor struct {
-	Events   *repo.EventsRepo
-	Chargers *repo.ChargersRepo
-	State    *repo.StateRepo
-	Sessions *repo.SessionsRepo
-	MaxSkew  time.Duration
+	Events      *repo.EventsRepo
+	Chargers    *repo.ChargersRepo
+	State       *repo.StateRepo
+	Sessions    *repo.SessionsRepo
+	Pricing     *PricingService
+	Settlements *SettlementService
+	MaxSkew     time.Duration
 }
 
-func NewEventsProcessor(e *repo.EventsRepo, c *repo.ChargersRepo, st *repo.StateRepo, s *repo.SessionsRepo, maxSkew time.Duration) *EventsProcessor {
-	return &EventsProcessor{Events: e, Chargers: c, State: st, Sessions: s, MaxSkew: maxSkew}
+func NewEventsProcessor(
+	e *repo.EventsRepo,
+	c *repo.ChargersRepo,
+	st *repo.StateRepo,
+	s *repo.SessionsRepo,
+	pricing *PricingService,
+	settlements *SettlementService,
+	maxSkew time.Duration,
+) *EventsProcessor {
+	return &EventsProcessor{
+		Events:      e,
+		Chargers:    c,
+		State:       st,
+		Sessions:    s,
+		Pricing:     pricing,
+		Settlements: settlements,
+		MaxSkew:     maxSkew,
+	}
 }
 
 type baseEvent struct {
@@ -161,6 +179,13 @@ func (p *EventsProcessor) Ingest(ctx context.Context, raw []byte) (string, error
 		_ = p.Sessions.End(ctx, sess.SessionId, ts, stop, reason)
 		// Finalize with fallback (StopTransaction -> last register -> sum interval -> Missing)
 		_ = p.Sessions.FinalizeWithFallback(ctx, sess.SessionId)
+		if p.Pricing != nil {
+			_ = p.Pricing.PriceSessionPerKwh(ctx, sess.SessionId)
+		}
+		if p.Settlements != nil {
+			_ = p.Settlements.CreatePendingFromSession(ctx, sess.SessionId)
+		}
+
 		_ = p.Chargers.TouchLastSeen(ctx, cp, ts)
 		_ = p.Sessions.End(ctx, sess.SessionId, ts, stop, reason)
 		_ = p.Chargers.TouchLastSeen(ctx, cp, ts)

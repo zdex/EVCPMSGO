@@ -37,6 +37,10 @@ type Session struct {
 	EnergySource  *string
 	IsEstimated   bool
 	FinalizedAt   *time.Time
+	TariffId      *string
+	CostAmount    *float64
+	CostCurrency  *string
+	PricedAt      *time.Time
 }
 
 type MeterSample struct {
@@ -59,4 +63,36 @@ type Command struct {
 	Error          *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+type Site struct {
+	SiteId       string
+	Name         string
+	PayoutWallet *string
+	CreatedAt    time.Time
+}
+
+type Tariff struct {
+	TariffId    string
+	SiteId      string
+	PricePerKwh float64
+	Currency    string
+	IsActive    bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type Settlement struct {
+	SettlementId string
+	SessionId    string
+	SiteId       string
+	Amount       float64
+	Currency     string
+	Status       string
+	Chain        *string
+	TxHash       *string
+	ExternalRef  *string
+	Error        *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }

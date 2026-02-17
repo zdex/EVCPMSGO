@@ -51,3 +51,17 @@ func (r *ChargersRepo) TouchLastSeen(ctx context.Context, id string, t time.Time
 	_, err := r.db.Exec(ctx, `update chargers set last_seen_at=$2, updated_at=now() where charge_point_id=$1`, id, t)
 	return err
 }
+
+func (r *ChargersRepo) SetSite(ctx context.Context, chargePointId string, siteId string) error {
+	_, err := r.db.Exec(ctx, `update chargers set site_id=$2, updated_at=now() where charge_point_id=$1`, chargePointId, siteId)
+	return err
+}
+
+func (r *ChargersRepo) GetSiteID(ctx context.Context, chargePointId string) (string, error) {
+	row := r.db.QueryRow(ctx, `select coalesce(site_id::text,'') from chargers where charge_point_id=$1`, chargePointId)
+	var site string
+	if err := row.Scan(&site); err != nil {
+		return "", err
+	}
+	return site, nil
+}

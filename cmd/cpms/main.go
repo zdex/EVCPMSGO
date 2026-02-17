@@ -11,10 +11,10 @@ import (
 
 	"cpms/internal/config"
 	"cpms/internal/db"
+	"cpms/internal/gatewayclient"
 	"cpms/internal/httpapi"
 	"cpms/internal/repo"
 	"cpms/internal/services"
-	"cpms/internal/gatewayclient"
 )
 
 func main() {
@@ -34,11 +34,16 @@ func main() {
 	state := repo.NewStateRepo(d.Pool)
 	sessions := repo.NewSessionsRepo(d.Pool)
 	commands := repo.NewCommandsRepo(d.Pool)
+	sites := repo.NewSitesRepo(d.Pool)
+	tariffs := repo.NewTariffsRepo(d.Pool)
+	settlementsRepo := repo.NewSettlementsRepo(d.Pool)
 
 	gw := gatewayclient.New(cfg.GatewayBaseURL, cfg.GatewayAPIKey)
 
-	processor := services.NewEventsProcessor(events, chargers, state, sessions, cfg.MaxEventSkew)
-	srv := httpapi.NewServer(cfg, chargers, state, sessions, commands, gw, processor)
+	pricing := services.NewPricingService(chargers, tariffs, sessions)
+	settlementSvc := &services.SettlementService{Chargers: chargers, Sites: sites, Sessions: sessions, Settlements: settlementsRepo}
+	processor := services.NewEventsProcessor(events, chargers, state, sessions, pricing, settlementSvc, cfg.MaxEventSkew)
+	srv := httpapi.NewServer(cfg, chargers, state, sessions, commands, sites, tariffs, settlementsRepo, gw, processor)
 
 	httpServer := &http.Server{
 		Addr:              cfg.ListenAddr,

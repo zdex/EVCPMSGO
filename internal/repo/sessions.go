@@ -31,7 +31,7 @@ func (r *SessionsRepo) Start(ctx context.Context, s models.Session) (string, err
 
 func (r *SessionsRepo) FindByTx(ctx context.Context, cp string, tx int) (*models.Session, error) {
 	row := r.db.QueryRow(ctx, `
-		select session_id, charge_point_id, connector_id, transaction_id, coalesce(id_tag,''), started_at, ended_at, meter_start_wh, meter_stop_wh, reason, energy_wh, energy_source, is_estimated, finalized_at
+		select session_id, charge_point_id, connector_id, transaction_id, coalesce(id_tag,''), started_at, ended_at, meter_start_wh, meter_stop_wh, reason, energy_wh, energy_source, is_estimated, finalized_at, tariff_id::text, cost_amount::float8, cost_currency, priced_at
 		from sessions
 		where charge_point_id=$1 and transaction_id=$2
 		order by started_at desc
@@ -39,7 +39,7 @@ func (r *SessionsRepo) FindByTx(ctx context.Context, cp string, tx int) (*models
 	`, cp, tx)
 
 	var s models.Session
-	if err := row.Scan(&s.SessionId, &s.ChargePointId, &s.ConnectorId, &s.TransactionId, &s.IdTag, &s.StartedAt, &s.EndedAt, &s.MeterStartWh, &s.MeterStopWh, &s.Reason, &s.EnergyWh, &s.EnergySource, &s.IsEstimated, &s.FinalizedAt); err != nil {
+	if err := row.Scan(&s.SessionId, &s.ChargePointId, &s.ConnectorId, &s.TransactionId, &s.IdTag, &s.StartedAt, &s.EndedAt, &s.MeterStartWh, &s.MeterStopWh, &s.Reason, &s.EnergyWh, &s.EnergySource, &s.IsEstimated, &s.FinalizedAt, &s.TariffId, &s.CostAmount, &s.CostCurrency, &s.PricedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
@@ -66,12 +66,12 @@ func (r *SessionsRepo) InsertMeterSample(ctx context.Context, sample models.Mete
 
 func (r *SessionsRepo) GetByID(ctx context.Context, id string) (*models.Session, error) {
 	row := r.db.QueryRow(ctx, `
-		select session_id, charge_point_id, connector_id, transaction_id, coalesce(id_tag,''), started_at, ended_at, meter_start_wh, meter_stop_wh, reason, energy_wh, energy_source, is_estimated, finalized_at
+		select session_id, charge_point_id, connector_id, transaction_id, coalesce(id_tag,''), started_at, ended_at, meter_start_wh, meter_stop_wh, reason, energy_wh, energy_source, is_estimated, finalized_at, tariff_id::text, cost_amount::float8, cost_currency, priced_at
 		from sessions where session_id=$1
 	`, id)
 
 	var s models.Session
-	if err := row.Scan(&s.SessionId, &s.ChargePointId, &s.ConnectorId, &s.TransactionId, &s.IdTag, &s.StartedAt, &s.EndedAt, &s.MeterStartWh, &s.MeterStopWh, &s.Reason, &s.EnergyWh, &s.EnergySource, &s.IsEstimated, &s.FinalizedAt); err != nil {
+	if err := row.Scan(&s.SessionId, &s.ChargePointId, &s.ConnectorId, &s.TransactionId, &s.IdTag, &s.StartedAt, &s.EndedAt, &s.MeterStartWh, &s.MeterStopWh, &s.Reason, &s.EnergyWh, &s.EnergySource, &s.IsEstimated, &s.FinalizedAt, &s.TariffId, &s.CostAmount, &s.CostCurrency, &s.PricedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
@@ -85,7 +85,7 @@ func (r *SessionsRepo) ListByCharger(ctx context.Context, cp string, limit int) 
 		limit = 50
 	}
 	rows, err := r.db.Query(ctx, `
-		select session_id, charge_point_id, connector_id, transaction_id, coalesce(id_tag,''), started_at, ended_at, meter_start_wh, meter_stop_wh, reason, energy_wh, energy_source, is_estimated, finalized_at
+		select session_id, charge_point_id, connector_id, transaction_id, coalesce(id_tag,''), started_at, ended_at, meter_start_wh, meter_stop_wh, reason, energy_wh, energy_source, is_estimated, finalized_at, tariff_id::text, cost_amount::float8, cost_currency, priced_at
 		from sessions where charge_point_id=$1
 		order by started_at desc
 		limit $2
@@ -98,7 +98,7 @@ func (r *SessionsRepo) ListByCharger(ctx context.Context, cp string, limit int) 
 	var out []models.Session
 	for rows.Next() {
 		var s models.Session
-		if err := rows.Scan(&s.SessionId, &s.ChargePointId, &s.ConnectorId, &s.TransactionId, &s.IdTag, &s.StartedAt, &s.EndedAt, &s.MeterStartWh, &s.MeterStopWh, &s.Reason); err != nil {
+		if err := rows.Scan(&s.SessionId, &s.ChargePointId, &s.ConnectorId, &s.TransactionId, &s.IdTag, &s.StartedAt, &s.EndedAt, &s.MeterStartWh, &s.MeterStopWh, &s.Reason, &s.EnergyWh, &s.EnergySource, &s.IsEstimated, &s.FinalizedAt, &s.TariffId, &s.CostAmount, &s.CostCurrency, &s.PricedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -113,6 +113,12 @@ func (r *SessionsRepo) ListByCharger(ctx context.Context, cp string, limit int) 
 // 3) sum of Energy.Active.Import.Interval from MeterSample (Wh per interval)
 // If nothing available, energy_wh remains NULL and is_estimated=true.
 func (r *SessionsRepo) FinalizeWithFallback(ctx context.Context, sessionId string) error {
+	return r.FinalizeWithFallbackForce(ctx, sessionId, false)
+}
+
+// FinalizeWithFallbackForce recomputes energy and marks session finalized.
+// If force=true, it will recompute even if already finalized.
+func (r *SessionsRepo) FinalizeWithFallbackForce(ctx context.Context, sessionId string, force bool) error {
 	sess, err := r.GetByID(ctx, sessionId)
 	if err != nil {
 		return err
@@ -120,12 +126,16 @@ func (r *SessionsRepo) FinalizeWithFallback(ctx context.Context, sessionId strin
 	if sess == nil {
 		return nil
 	}
-	// Already finalized? keep idempotent
-	// We can't see finalized_at from models.Session in MVP struct, so we do a lightweight check.
+	// Already finalized? keep idempotent unless force=true
 	var already bool
 	_ = r.db.QueryRow(ctx, `select finalized_at is not null from sessions where session_id=$1`, sessionId).Scan(&already)
-	if already {
+	if already && !force {
 		return nil
+	}
+
+	// If forcing, clear previous computed fields first
+	if force {
+		_, _ = r.db.Exec(ctx, `update sessions set energy_wh=null, energy_source=null, is_estimated=false, finalized_at=null where session_id=$1`, sessionId)
 	}
 
 	// 1) meterStop - meterStart
@@ -232,4 +242,13 @@ func (r *SessionsRepo) SumEnergyIntervalWh(ctx context.Context, sessionId string
 		return 0, false, nil
 	}
 	return sum, true, nil
+}
+
+func (r *SessionsRepo) SetPricing(ctx context.Context, sessionId string, tariffId string, costAmount float64, currency string) error {
+	_, err := r.db.Exec(ctx, `
+		update sessions
+		set tariff_id=$2, cost_amount=$3, cost_currency=$4, priced_at=now(), updated_at=now()
+		where session_id=$1
+	`, sessionId, tariffId, costAmount, currency)
+	return err
 }

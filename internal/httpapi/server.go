@@ -16,17 +16,20 @@ import (
 )
 
 type Server struct {
-	Cfg       config.Config
-	Chargers  *repo.ChargersRepo
-	State     *repo.StateRepo
-	Sessions  *repo.SessionsRepo
-	Commands  *repo.CommandsRepo
-	Gateway   *gatewayclient.Client
-	Processor *services.EventsProcessor
+	Cfg         config.Config
+	Chargers    *repo.ChargersRepo
+	State       *repo.StateRepo
+	Sessions    *repo.SessionsRepo
+	Commands    *repo.CommandsRepo
+	Sites       *repo.SitesRepo
+	Tariffs     *repo.TariffsRepo
+	Settlements *repo.SettlementsRepo
+	Gateway     *gatewayclient.Client
+	Processor   *services.EventsProcessor
 }
 
-func NewServer(cfg config.Config, chargers *repo.ChargersRepo, state *repo.StateRepo, sessions *repo.SessionsRepo, commands *repo.CommandsRepo, gw *gatewayclient.Client, processor *services.EventsProcessor) *Server {
-	return &Server{Cfg: cfg, Chargers: chargers, State: state, Sessions: sessions, Commands: commands, Gateway: gw, Processor: processor}
+func NewServer(cfg config.Config, chargers *repo.ChargersRepo, state *repo.StateRepo, sessions *repo.SessionsRepo, commands *repo.CommandsRepo, sites *repo.SitesRepo, tariffs *repo.TariffsRepo, settlements *repo.SettlementsRepo, gw *gatewayclient.Client, processor *services.EventsProcessor) *Server {
+	return &Server{Cfg: cfg, Chargers: chargers, State: state, Sessions: sessions, Commands: commands, Sites: sites, Tariffs: tariffs, Settlements: settlements, Gateway: gw, Processor: processor}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -42,8 +45,18 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/v1/chargers/{chargePointId}/connectors", s.ListConnectors)
 	r.Get("/v1/chargers/{chargePointId}/sessions", s.ListSessionsByCharger)
 	r.Get("/v1/sessions/{sessionId}", s.GetSession)
+	r.Post("/v1/sessions/{sessionId}/finalize", s.FinalizeSession)
 
 	r.Post("/v1/commands", s.CreateAndSendCommand)
+
+	r.Post("/v1/sites", s.CreateSite)
+	r.Post("/v1/sites/{siteId}/tariffs", s.UpsertActiveTariff)
+	r.Post("/v1/sites/{siteId}/wallet", s.SetSiteWallet)
+
+	r.Get("/v1/settlements", s.ListSettlements)
+	r.Post("/v1/settlements/{settlementId}/submitted", s.MarkSettlementSubmitted)
+	r.Post("/v1/settlements/{settlementId}/confirmed", s.MarkSettlementConfirmed)
+	r.Post("/v1/settlements/{settlementId}/failed", s.MarkSettlementFailed)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	return r

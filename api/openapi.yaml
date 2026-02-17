@@ -37,3 +37,115 @@ paths:
               type: object
       responses:
         "202": { description: Accepted }
+
+/v1/sessions/{sessionId}/finalize:
+  post:
+    summary: Finalize session and compute energy with fallback ladder
+    parameters:
+      - in: path
+        name: sessionId
+        required: true
+        schema: { type: string }
+      - in: query
+        name: force
+        required: false
+        schema: { type: boolean }
+        description: If true, recompute even if already finalized
+    responses:
+      "200": { description: OK }
+      "404": { description: Not found }
+
+/v1/sites:
+  post:
+    summary: Create a site
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string }
+            required: [name]
+    responses:
+      "200": { description: OK }
+
+/v1/sites/{siteId}/tariffs:
+  post:
+    summary: Create an active per-kWh tariff for a site (deactivates previous)
+    parameters:
+      - in: path
+        name: siteId
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              pricePerKwh: { type: number }
+              currency: { type: string }
+            required: [pricePerKwh]
+    responses:
+      "200": { description: OK }
+
+/v1/settlements:
+  get:
+    summary: List settlements
+    parameters:
+      - in: query
+        name: status
+        required: false
+        schema: { type: string }
+      - in: query
+        name: limit
+        required: false
+        schema: { type: integer }
+    responses:
+      "200": { description: OK }
+
+/v1/settlements/{settlementId}/submitted:
+  post:
+    summary: Mark settlement as submitted and attach chain tx hash
+    parameters:
+      - in: path
+        name: settlementId
+        required: true
+        schema: { type: string }
+    responses:
+      "204": { description: No Content }
+
+/v1/settlements/{settlementId}/confirmed:
+  post:
+    summary: Mark settlement confirmed
+    parameters:
+      - in: path
+        name: settlementId
+        required: true
+        schema: { type: string }
+    responses:
+      "204": { description: No Content }
+
+/v1/settlements/{settlementId}/failed:
+  post:
+    summary: Mark settlement failed with error message
+    parameters:
+      - in: path
+        name: settlementId
+        required: true
+        schema: { type: string }
+    responses:
+      "204": { description: No Content }
+
+/v1/sites/{siteId}/wallet:
+  post:
+    summary: Set payout wallet for a site
+    parameters:
+      - in: path
+        name: siteId
+        required: true
+        schema: { type: string }
+    responses:
+      "204": { description: No Content }

@@ -6,19 +6,23 @@ import (
 )
 
 type Config struct {
+	ListenAddr  string
+	DatabaseURL string
+
+	// Gateway (CPMS -> Gateway commands)
 	GatewayBaseURL string
 	GatewayAPIKey  string
-	ListenAddr     string
-	DatabaseURL    string
-	MaxEventSkew   time.Duration
+
+	// Ingestion hardening
+	MaxEventSkew time.Duration
 }
 
 func Load() Config {
 	return Config{
 		ListenAddr:     getenv("CPMS_LISTEN_ADDR", ":8081"),
+		DatabaseURL:    getenv("CPMS_DATABASE_URL", "postgres://cpms:cpms@localhost:5432/cpms?sslmode=disable"),
 		GatewayBaseURL: getenv("GATEWAY_BASE_URL", "http://localhost:8080"),
 		GatewayAPIKey:  getenv("GATEWAY_API_KEY", ""),
-		DatabaseURL:    getenv("CPMS_DATABASE_URL", "postgres://cpms:cpms@localhost:5432/cpms?sslmode=disable"),
 		MaxEventSkew:   parseDuration(getenv("CPMS_MAX_EVENT_SKEW", "0s")),
 	}
 }
